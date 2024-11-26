@@ -1,8 +1,10 @@
-import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
+import { Request, Response, NextFunction } from "express";
+
 import { status } from "../config/http.config";
 import { AppError } from "../common/utils/app-error";
+import { config } from "../config/app.config";
 
-export const errorHandler: ErrorRequestHandler = (
+export const errorHandler = (
   error: any,
   req: Request,
   res: Response,
@@ -14,6 +16,7 @@ export const errorHandler: ErrorRequestHandler = (
     res.status(status.BAD_REQUEST).json({
       message: "Invalid JSON format, please check your request body.",
     });
+    return;
   }
 
   if (error instanceof AppError) {
@@ -21,12 +24,13 @@ export const errorHandler: ErrorRequestHandler = (
       message: error.message,
       errorCode: error.errorCode,
     });
+    return;
   }
 
   res.status(status.INTERNAL_SERVER_ERROR).json({
     message: "Internal server error",
     error: error?.message || "Unknown error occurred.",
+    ...(config.NODE_ENV === "development" && { stack: error.stack }),
   });
-
-  next();
+  return;
 };
