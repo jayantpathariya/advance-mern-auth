@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import { status } from "../config/http.config";
+import { AppError } from "../common/utils/app-error";
 
 export const errorHandler: ErrorRequestHandler = (
   error: any,
@@ -12,6 +13,13 @@ export const errorHandler: ErrorRequestHandler = (
   if (error instanceof SyntaxError) {
     res.status(status.BAD_REQUEST).json({
       message: "Invalid JSON format, please check your request body.",
+    });
+  }
+
+  if (error instanceof AppError) {
+    res.status(error.statusCode).json({
+      message: error.message,
+      errorCode: error.errorCode,
     });
   }
 

@@ -3,10 +3,11 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import "dotenv/config";
 
-import { config } from "./config/app.config";
 import connectToDB from "./database/database";
+import { config } from "./config/app.config";
 import { errorHandler } from "./middlewares/error-handler";
 import { status } from "./config/http.config";
+import { BadRequestException } from "./common/utils/catch-errors";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -22,7 +23,8 @@ app.use(
 
 app.use(cookieParser());
 
-app.post("/", (req: Request, res: Response) => {
+app.get("/", (req: Request, res: Response) => {
+  throw new BadRequestException("Bad request error.");
   res.status(status.OK).json({
     message: "Hello World",
   });
