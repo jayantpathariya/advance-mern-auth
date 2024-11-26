@@ -1,6 +1,6 @@
-import { HttpStatusCode, status } from "../../config/http.config";
-import { ErrorCode } from "../enums/error-code.enum";
-import { AppError } from "./app-error";
+import { HttpStatusCode, status } from "@config/http.config";
+import { ErrorCode } from "@enums/error-code.enum";
+import { AppError } from "@utils/app-error";
 
 export class NotFoundException extends AppError {
   constructor(message = "Resource not found", errorCode?: ErrorCode) {

@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema } from "mongoose";
-import { thirtyDaysFromNow } from "../../common/utils/date-time";
+import { thirtyDaysFromNow } from "@common/utils/date-time";
 
 export type SessionDocument = Document & {
   userId: Schema.Types.ObjectId;
@@ -25,6 +25,7 @@ const sessionSchema = new Schema<SessionDocument>({
   },
   expiresAt: {
     type: Date,
+    required: true,
     default: thirtyDaysFromNow,
   },
 });

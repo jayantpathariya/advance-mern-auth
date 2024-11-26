@@ -1,13 +1,13 @@
-import express, { Request, Response } from "express";
+import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import "dotenv/config";
 
-import connectToDB from "./database/database";
-import { config } from "./config/app.config";
-import { errorHandler } from "./middlewares/error-handler";
+import connectToDB from "@/database/database";
+import { config } from "@config/app.config";
+import { errorHandler } from "@middlewares/error-handler";
 
-import authRoutes from "./modules/auth/auth.routes";
+import authRoutes from "@routes/auth/auth.routes";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
