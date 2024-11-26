@@ -5,6 +5,8 @@ import "dotenv/config";
 
 import { config } from "./config/app.config";
 import connectToDB from "./database/database";
+import { errorHandler } from "./middlewares/error-handler";
+import { status } from "./config/http.config";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -20,11 +22,13 @@ app.use(
 
 app.use(cookieParser());
 
-app.get("/", (req: Request, res: Response) => {
-  res.status(200).json({
+app.post("/", (req: Request, res: Response) => {
+  res.status(status.OK).json({
     message: "Hello World",
   });
 });
+
+app.use(errorHandler);
 
 app.listen(config.PORT, async () => {
   await connectToDB();
