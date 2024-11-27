@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 
+import { hashValue } from '@/common/utils/bcrypt';
 import {
+  clearAuthenticationCookie,
   getAccessTokenCookieOptions,
   getRefreshTokenCookieOptions,
   setAuthenticationCookie,
@@ -295,6 +297,42 @@ export const forgotPassword = asyncHandler(
 
     return res.status(status.OK).json({
       message: 'Password reset link sent successfully',
+    });
+  },
+);
+
+export const resetPassword = asyncHandler(
+  async (req: Request, res: Response): Promise<any> => {
+    const { password, verificationCode } = resetPasswordSchema.parse(req.body);
+
+    const validCode = await VerificationCodeModel.findOne({
+      code: verificationCode,
+      type: VerificationEnum.PASSWORD_RESET,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!validCode) {
+      throw new NotFoundException('Invalid or expired verification code');
+    }
+
+    const hashedPassword = await hashValue(password);
+
+    const updatedUser = await UserModel.findByIdAndUpdate(validCode.userId, {
+      password: hashedPassword,
+    });
+
+    if (!updatedUser) {
+      throw new BadRequestException('Failed to reset password');
+    }
+
+    await validCode.deleteOne();
+
+    await SessionModel.deleteMany({
+      userId: updatedUser._id,
+    });
+
+    return clearAuthenticationCookie(res).status(status.OK).json({
+      message: 'Password reset successfully',
     });
   },
 );
