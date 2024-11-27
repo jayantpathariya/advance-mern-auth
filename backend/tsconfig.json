@@ -14,7 +14,8 @@
       "@routes/*": ["modules/*"],
       "@controllers/*": ["modules/*"],
       "@middlewares/*": ["middlewares/*"],
-      "@enums/*": ["common/enums/*"]
+      "@enums/*": ["common/enums/*"],
+      "@mailers/*": ["mailers/*"]
     },
     "outDir": "./dist",
     "esModuleInterop": true,
