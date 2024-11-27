@@ -97,7 +97,7 @@ export const register = asyncHandler(
 export const login = asyncHandler(
   async (req: Request, res: Response): Promise<any> => {
     const userAgentH = req.headers['user-agent'];
-    const body = loginSchema.parse({ ...req.body, userAgentH });
+    const body = loginSchema.parse({ ...req.body, userAgent: userAgentH });
 
     const { email, password, userAgent } = body;
 
