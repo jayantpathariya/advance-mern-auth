@@ -1,8 +1,11 @@
 import { Router } from 'express';
 
+import { authenticateJWT } from '@/common/strategies/jwt.strategy';
+
 import {
   forgotPassword,
   login,
+  logout,
   refreshToken,
   register,
   resetPassword,
@@ -17,5 +20,6 @@ router.get('/refresh', refreshToken);
 router.post('/verify/email', verifyEmail);
 router.post('/password/forgot', forgotPassword);
 router.post('/password/reset', resetPassword);
+router.post('/logout', authenticateJWT, logout);
 
 export default router;

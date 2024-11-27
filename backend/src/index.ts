@@ -9,8 +9,12 @@ import connectToDB from '@/database/database';
 import { config } from '@config/app.config';
 
 import authRoutes from '@routes/auth/auth.routes';
+import sessionRoutes from '@routes/session/session.routes';
 
 import { errorHandler } from '@middlewares/error-handler';
+import passport from '@middlewares/passport';
+
+import { authenticateJWT } from '@common/strategies/jwt.strategy';
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -25,8 +29,10 @@ app.use(
 );
 
 app.use(cookieParser());
+app.use(passport.initialize());
 
 app.use(`${BASE_PATH}/auth`, authRoutes);
+app.use(`${BASE_PATH}/session`, authenticateJWT, sessionRoutes);
 
 app.use(errorHandler);
 

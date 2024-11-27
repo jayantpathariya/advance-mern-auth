@@ -336,3 +336,19 @@ export const resetPassword = asyncHandler(
     });
   },
 );
+
+export const logout = asyncHandler(
+  async (req: Request, res: Response): Promise<any> => {
+    const session = req.sessionId;
+
+    if (!session) {
+      throw new UnauthorizedException('User not authorized');
+    }
+
+    await SessionModel.findByIdAndDelete(session);
+
+    return clearAuthenticationCookie(res).status(status.OK).json({
+      message: 'User logged out successfully',
+    });
+  },
+);
