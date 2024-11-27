@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request, Response } from 'express';
 
 import {
   getAccessTokenCookieOptions,
@@ -12,6 +12,7 @@ import {
   verifyJWTToken,
 } from '@/common/utils/jwt';
 import { config } from '@/config/app.config';
+import { asyncHandler } from '@/middlewares/async-handler';
 
 import { status } from '@config/http.config';
 
@@ -23,6 +24,7 @@ import { ErrorCode } from '@common/enums/error-code.enum';
 import { VerificationEnum } from '@common/enums/verification-code.enum';
 import {
   BadRequestException,
+  NotFoundException,
   UnauthorizedException,
 } from '@common/utils/catch-errors';
 import {
@@ -30,14 +32,14 @@ import {
   fortyFiveMinutesFromNow,
   ONE_DAY_IN_MS,
 } from '@common/utils/date-time';
-import { loginSchema, registerSchema } from '@common/validators/auth-validator';
+import {
+  loginSchema,
+  registerSchema,
+  verificationEmailSchema,
+} from '@common/validators/auth-validator';
 
-export const register = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<any> => {
-  try {
+export const register = asyncHandler(
+  async (req: Request, res: Response): Promise<any> => {
     const body = registerSchema.parse(req.body);
 
     const { name, email, password } = body;
@@ -69,17 +71,11 @@ export const register = async (
       message: 'User registered successfully',
       data: newUser,
     });
-  } catch (error) {
-    next(error);
-  }
-};
+  },
+);
 
-export const login = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<any> => {
-  try {
+export const login = asyncHandler(
+  async (req: Request, res: Response): Promise<any> => {
     const userAgentH = req.headers['user-agent'];
     const body = loginSchema.parse({ ...req.body, userAgentH });
 
@@ -133,17 +129,11 @@ export const login = async (
         user,
         mfaRequire: false,
       });
-  } catch (error) {
-    next(error);
-  }
-};
+  },
+);
 
-export const refreshToken = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<any> => {
-  try {
+export const refreshToken = asyncHandler(
+  async (req: Request, res: Response): Promise<any> => {
     const refreshToken = req.cookies['refreshToken'] as string | undefined;
 
     if (!refreshToken) {
@@ -206,7 +196,33 @@ export const refreshToken = async (
       .json({
         message: 'Token refreshed successfully',
       });
-  } catch (error) {
-    next(error);
-  }
-};
+  },
+);
+
+export const verifyEmail = asyncHandler(
+  async (req: Request, res: Response): Promise<any> => {
+    const { code } = verificationEmailSchema.parse(req.body);
+
+    const validCode = await VerificationCodeModel.findOne({
+      code,
+      type: VerificationEnum.EMAIL_VERIFICATION,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!validCode) {
+      throw new NotFoundException('Invalid or expired verification code');
+    }
+
+    await UserModel.findByIdAndUpdate(
+      validCode.userId,
+      { isEmailVerified: true },
+      { new: true },
+    );
+
+    await validCode.deleteOne();
+
+    return res.status(status.OK).json({
+      message: 'Email verified successfully',
+    });
+  },
+);
