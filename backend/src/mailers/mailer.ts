@@ -22,7 +22,7 @@ export const sendEmail = async ({
   html,
   from = mailer_sender,
 }: Params) => {
-  await resend.emails.send({
+  return await resend.emails.send({
     from,
     to: Array.isArray(to) ? to : [to],
     subject,
