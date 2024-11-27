@@ -1,23 +1,41 @@
-import { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
+import { NextFunction, Request, Response } from 'express';
 
-import VerificationCodeModel from "@models/verification.model";
-import UserModel from "@models/user.model";
-import SessionModel from "@models/session.model";
+import {
+  getAccessTokenCookieOptions,
+  getRefreshTokenCookieOptions,
+  setAuthenticationCookie,
+} from '@/common/utils/cookie';
+import {
+  refreshTokenSignOptions,
+  RefreshTPayload,
+  signJWTToken,
+  verifyJWTToken,
+} from '@/common/utils/jwt';
+import { config } from '@/config/app.config';
 
-import { status } from "@config/http.config";
-import { loginSchema, registerSchema } from "@common/validators/auth-validator";
-import { BadRequestException } from "@common/utils/catch-errors";
-import { ErrorCode } from "@common/enums/error-code.enum";
-import { VerificationEnum } from "@common/enums/verification-code.enum";
-import { fortyFiveMinutesFromNow } from "@common/utils/date-time";
-import { config } from "@config/app.config";
-import { setAuthenticationCookie } from "@/common/utils/cookie";
+import { status } from '@config/http.config';
+
+import SessionModel from '@models/session.model';
+import UserModel from '@models/user.model';
+import VerificationCodeModel from '@models/verification.model';
+
+import { ErrorCode } from '@common/enums/error-code.enum';
+import { VerificationEnum } from '@common/enums/verification-code.enum';
+import {
+  BadRequestException,
+  UnauthorizedException,
+} from '@common/utils/catch-errors';
+import {
+  calculateExpirationDate,
+  fortyFiveMinutesFromNow,
+  ONE_DAY_IN_MS,
+} from '@common/utils/date-time';
+import { loginSchema, registerSchema } from '@common/validators/auth-validator';
 
 export const register = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<any> => {
   try {
     const body = registerSchema.parse(req.body);
@@ -30,8 +48,8 @@ export const register = async (
 
     if (existingUser) {
       throw new BadRequestException(
-        "User already exists with this email",
-        ErrorCode.AUTH_EMAIL_ALREADY_EXISTS
+        'User already exists with this email',
+        ErrorCode.AUTH_EMAIL_ALREADY_EXISTS,
       );
     }
 
@@ -48,7 +66,7 @@ export const register = async (
     });
 
     return res.status(status.CREATED).json({
-      message: "User registered successfully",
+      message: 'User registered successfully',
       data: newUser,
     });
   } catch (error) {
@@ -59,10 +77,10 @@ export const register = async (
 export const login = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<any> => {
   try {
-    const userAgentH = req.headers["user-agent"];
+    const userAgentH = req.headers['user-agent'];
     const body = loginSchema.parse({ ...req.body, userAgentH });
 
     const { email, password, userAgent } = body;
@@ -73,8 +91,8 @@ export const login = async (
 
     if (!user) {
       throw new BadRequestException(
-        "Invalid email or password",
-        ErrorCode.AUTH_USER_NOT_FOUND
+        'Invalid email or password',
+        ErrorCode.AUTH_USER_NOT_FOUND,
       );
     }
 
@@ -82,8 +100,8 @@ export const login = async (
 
     if (!isPasswordValid) {
       throw new BadRequestException(
-        "Invalid email or password",
-        ErrorCode.AUTH_USER_NOT_FOUND
+        'Invalid email or password',
+        ErrorCode.AUTH_USER_NOT_FOUND,
       );
     }
 
@@ -92,22 +110,16 @@ export const login = async (
       userAgent,
     });
 
-    const accessToken = jwt.sign(
-      { userId: user._id, sessionId: session._id },
-      config.JWT.SECRET,
-      {
-        audience: ["user"],
-        expiresIn: config.JWT.EXPIRES_IN,
-      }
-    );
+    const accessToken = signJWTToken({
+      userId: user._id,
+      sessionId: session._id,
+    });
 
-    const refreshToken = jwt.sign(
-      { sessionId: session._id },
-      config.JWT.REFRESH_SECRET,
+    const refreshToken = signJWTToken(
       {
-        audience: ["user"],
-        expiresIn: config.JWT.REFRESH_EXPIRES_IN,
-      }
+        sessionId: session._id,
+      },
+      refreshTokenSignOptions,
     );
 
     return setAuthenticationCookie({
@@ -117,9 +129,82 @@ export const login = async (
     })
       .status(status.OK)
       .json({
-        message: "User logged in successfully",
+        message: 'User logged in successfully',
         user,
         mfaRequire: false,
+      });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<any> => {
+  try {
+    const refreshToken = req.cookies['refreshToken'] as string | undefined;
+
+    if (!refreshToken) {
+      throw new UnauthorizedException('User not authorized');
+    }
+
+    const { payload } = verifyJWTToken<RefreshTPayload>(refreshToken, {
+      secret: refreshTokenSignOptions.secret,
+    });
+
+    if (!payload) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const session = await SessionModel.findById(payload.sessionId);
+    const now = Date.now();
+
+    if (!session) {
+      throw new UnauthorizedException('Session does not exist');
+    }
+
+    if (session.expiresAt.getTime() <= now) {
+      throw new UnauthorizedException('Session expired');
+    }
+    const sessionRequiredRefresh =
+      session.expiresAt.getTime() - now <= ONE_DAY_IN_MS;
+
+    if (sessionRequiredRefresh) {
+      session.expiresAt = calculateExpirationDate(
+        config.JWT.REFRESH_EXPIRES_IN,
+      );
+      await session.save();
+    }
+
+    const newRefreshToken = sessionRequiredRefresh
+      ? signJWTToken(
+          {
+            sessionId: session._id,
+          },
+          refreshTokenSignOptions,
+        )
+      : undefined;
+
+    const accessToken = signJWTToken({
+      userId: session.userId,
+      sessionId: session._id,
+    });
+
+    if (newRefreshToken) {
+      res.cookie(
+        'refreshToken',
+        newRefreshToken,
+        getRefreshTokenCookieOptions(),
+      );
+    }
+
+    return res
+      .status(status.OK)
+      .cookie('accessToken', accessToken, getAccessTokenCookieOptions())
+      .json({
+        message: 'Token refreshed successfully',
       });
   } catch (error) {
     next(error);
