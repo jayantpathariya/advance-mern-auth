@@ -9,6 +9,7 @@ import connectToDB from '@/database/database';
 import { config } from '@config/app.config';
 
 import authRoutes from '@routes/auth/auth.routes';
+import mfaRoutes from '@routes/mfa/mfa.routes';
 import sessionRoutes from '@routes/session/session.routes';
 
 import { errorHandler } from '@middlewares/error-handler';
@@ -33,6 +34,7 @@ app.use(passport.initialize());
 
 app.use(`${BASE_PATH}/auth`, authRoutes);
 app.use(`${BASE_PATH}/session`, authenticateJWT, sessionRoutes);
+app.use(`${BASE_PATH}/mfa`, mfaRoutes);
 
 app.use(errorHandler);
 

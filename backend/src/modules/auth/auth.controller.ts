@@ -121,6 +121,14 @@ export const login = asyncHandler(
       );
     }
 
+    if (user.userPreferences.enable2FA) {
+      return res.status(status.OK).json({
+        message: 'Verify MFA authentication',
+        mfaRequired: true,
+        user: null,
+      });
+    }
+
     const session = await SessionModel.create({
       userId: user._id,
       userAgent,
